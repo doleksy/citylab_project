@@ -1,16 +1,16 @@
-#include "geometry_msgs/msg/detail/twist__struct.hpp"
 #include "rclcpp/callback_group.hpp"
 #include "rclcpp/executors/multi_threaded_executor.hpp"
 #include "rclcpp/publisher.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/subscription.hpp"
+#include "rclcpp/subscription_options.hpp"
 
 #include "geometry_msgs/msg/twist.hpp"
-#include "rclcpp/subscription_options.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 
 #include <chrono>
 #include <memory>
+#include <string>
 
 using namespace std::chrono_literals;
 using std::placeholders::_1;
@@ -20,7 +20,11 @@ namespace
 {
     constexpr double rad2deg { 180/3.14159265358979323846 };
     constexpr int neg_pi_2_idx { 165 };
+    constexpr int front_idx { 330 };
+    constexpr int front_width { 50 };
     constexpr int pos_pi_2_idx { 495 };
+
+    constexpr float detectionDistance { 0.35f };
 }
 
 class Patrol : public rclcpp::Node
@@ -31,39 +35,59 @@ public:
         , laserScanCb_callbackGroup{ this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive) }
         , cmdVelPub_{ this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10) }
         , timerCb_callbackGroup{ this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive) }
-        , timer_{ this->create_wall_timer(1000ms, std::bind(&Patrol::timerCb_, this), timerCb_callbackGroup) }
+        , timer_{ this->create_wall_timer(10ms, std::bind(&Patrol::timerCb_, this), timerCb_callbackGroup) }
     {
-        RCLCPP_INFO(this->get_logger(), "Constructing Patrol");
+        RCLCPP_INFO(this->get_logger(), "Constructing Patrol..");
 
         rclcpp::SubscriptionOptions laserSubOptions;
         laserSubOptions.callback_group = laserScanCb_callbackGroup;
         laserSub_ = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", 10,
             std::bind(&Patrol::laserScanCb, this, _1), laserSubOptions);
+
+        RCLCPP_INFO(this->get_logger(), "Patrol Constructed");
     }
 
 private:
     void laserScanCb(sensor_msgs::msg::LaserScan::SharedPtr msg)
     {
-        RCLCPP_INFO(get_logger(), "LaserScan callback triggered: size: %lu", msg->ranges.size());
+        RCLCPP_DEBUG(get_logger(), "LaserScan callback triggered: size: %lu", msg->ranges.size());
 
-        const auto rangeMax{ msg->range_max };
         const auto &rng = msg->ranges;
-        const auto maxDistanceIter =
-            std::max_element(
-                std::next(rng.begin(), neg_pi_2_idx),
-                std::next(rng.begin(), pos_pi_2_idx),
-                [rangeMax](float a, float b) { return (a > rangeMax ? 0 : a) < (b > rangeMax ? 0 : b); } );
-        const auto maxDistanceIdx = std::distance(rng.begin(), maxDistanceIter);
-        const auto zeroIdx{ UINT32_C(msg->ranges.size() / 2) };
-        distance_ = static_cast<int>(maxDistanceIdx - zeroIdx) * msg->angle_increment;
 
-        RCLCPP_INFO(get_logger(), "  maxDist: %f at idx: %lu(%d) and angle: %f (%f degrees)",
-            *maxDistanceIter, maxDistanceIdx, static_cast<int>(maxDistanceIdx - zeroIdx), distance_, distance_*rad2deg);
+        const auto distanceToObstacle =
+            std::min_element(
+                std::next(rng.begin(), front_idx - front_width),
+                std::next(rng.begin(), front_idx + front_width));
+        if (*distanceToObstacle < detectionDistance)
+        {
+            const auto rangeMax{ msg->range_max };
+            const auto maxDistanceIter =
+                std::max_element(
+                    std::next(rng.begin(), neg_pi_2_idx),
+                    std::next(rng.begin(), pos_pi_2_idx),
+                    [rangeMax](float a, float b) { return (a > rangeMax ? 0 : a) < (b > rangeMax ? 0 : b); } );
+            const auto maxDistanceIdx = std::distance(rng.begin(), maxDistanceIter);
+            const auto zeroIdx{ UINT32_C(msg->ranges.size() / 2) };
+            direction_ = static_cast<int>(maxDistanceIdx - zeroIdx) * msg->angle_increment;
+
+            RCLCPP_DEBUG(get_logger(), "  maxDist: %f at idx: %lu(%d) and angle: %f (%f degrees)",
+                *maxDistanceIter, maxDistanceIdx, static_cast<int>(maxDistanceIdx - zeroIdx), direction_, direction_*rad2deg);
+        }
+        else
+        {
+            direction_ = 0.0f;
+        }
     }
 
     void timerCb_()
     {
-        RCLCPP_INFO(get_logger(), "timer callback triggered");
+        RCLCPP_DEBUG(get_logger(), "timer callback triggered");
+
+        geometry_msgs::msg::Twist twistMsg;
+        twistMsg.linear.x = 0.1f;
+        twistMsg.angular.z = direction_ / 2.0f;
+
+        cmdVelPub_->publish(twistMsg);
     }
 
 private:
@@ -75,7 +99,7 @@ private:
     rclcpp::CallbackGroup::SharedPtr timerCb_callbackGroup;
     rclcpp::TimerBase::SharedPtr timer_;
 
-    float distance_{};
+    float direction_{};
 
 };
 
