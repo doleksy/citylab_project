@@ -12,6 +12,8 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)	## temporary
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -31,8 +33,12 @@ ament_package()
 add_executable(patrol_node src/patrol.cpp)
 ament_target_dependencies(patrol_node rclcpp sensor_msgs)
 
+add_executable(direction_srv_node src/direction_service.cpp)
+ament_target_dependencies(direction_srv_node rclcpp std_srvs)
+
 install(TARGETS
   patrol_node
+  direction_srv_node
   DESTINATION lib/${PROJECT_NAME}/
 )
 
