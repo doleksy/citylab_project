@@ -1,14 +1,13 @@
 #include "rclcpp/rclcpp.hpp"
 
-#include "std_srvs/srv/detail/empty__struct.hpp"
-#include "std_srvs/srv/empty.hpp"
+#include "citylab_interfaces/srv/get_direction.hpp"
 
 #include <functional>
 #include <memory>
 
 using namespace std::placeholders;
 
-using ServiceType = std_srvs::srv::Empty;
+using ServiceType = citylab_interfaces::srv::GetDirection;
 
 
 class DirectionService : public rclcpp::Node

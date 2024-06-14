@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(robot_patrol)
+project(citylab_interfaces)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -8,11 +8,13 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(citylab_interfaces REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/GetDirection.srv"
+  DEPENDENCIES sensor_msgs
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -27,21 +29,3 @@ if(BUILD_TESTING)
 endif()
 
 ament_package()
-
-
-add_executable(patrol_node src/patrol.cpp)
-ament_target_dependencies(patrol_node rclcpp sensor_msgs)
-
-add_executable(direction_srv_node src/direction_service.cpp)
-ament_target_dependencies(direction_srv_node rclcpp citylab_interfaces)
-
-install(TARGETS
-  patrol_node
-  direction_srv_node
-  DESTINATION lib/${PROJECT_NAME}/
-)
-
-install(DIRECTORY
-  launch
-  DESTINATION share/${PROJECT_NAME}/
-)
