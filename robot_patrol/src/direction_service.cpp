@@ -32,16 +32,17 @@ private:
     {
         RCLCPP_INFO(get_logger(), "Direction service callback triggered");
 
-        gather_laser_data(request->laser_data);
+        RCLCPP_INFO(logger_, "minAngle: %f, maxAngle: %f, angleInc: %f, ",
+            request->laser_data.angle_min, request->laser_data.angle_max, request->laser_data.angle_increment);
 
-        RCLCPP_INFO(get_logger(), "rMIn: %f, rMax: %f", range_min_, range_max_);
+        gather_laser_data(request->laser_data);
 
         const auto &rng = request->laser_data.ranges;
         const auto begIt{ rng.cbegin() };
         const auto leftIter{ std::next(begIt, left_idx_) };
         const auto leftFrontIter{ std::next(begIt, left_front_idx_) };
         const auto frontIter{ std::next(begIt, front_idx_) };
-        const auto frontRightIter{ std::next(begIt, front_right_idx_) };
+        const auto rightFrontIter{ std::next(begIt, right_front_idx_) };
         const auto rightIter{ std::next(begIt, right_idx_) };
         
         auto filterOutOfRange = [rMin = range_min_, rMax = range_max_](float total, float b)
@@ -49,10 +50,11 @@ private:
             return total + (b < rMin ? 0 : b > rMax ? 0 : b);
         };
 
-        const auto total_dist_sec_left  = std::accumulate(leftIter, leftFrontIter, 0.0f, filterOutOfRange);
-        const auto total_dist_sec_front = std::accumulate(leftFrontIter, frontIter, 0.0f, filterOutOfRange);
-        const auto total_dist_sec_right = std::accumulate(frontIter, frontRightIter, 0.0f, filterOutOfRange);
+        const auto total_dist_sec_left  = std::accumulate(leftFrontIter, leftIter, 0.0f, filterOutOfRange);
+        const auto total_dist_sec_front = std::accumulate(rightFrontIter, leftFrontIter, 0.0f, filterOutOfRange);
+        const auto total_dist_sec_right = std::accumulate(rightIter, rightFrontIter, 0.0f, filterOutOfRange);
 
+        RCLCPP_INFO(logger_, "left: %f, front: %f, right: %f, ", *leftIter, *frontIter, *rightIter);
         RCLCPP_INFO(logger_, "totals: left: %f, front: %f, right: %f, ", total_dist_sec_left, total_dist_sec_front, total_dist_sec_right);
 
         const auto maxTotal = std::max({total_dist_sec_front, total_dist_sec_left, total_dist_sec_right});
@@ -75,14 +77,18 @@ private:
 
         const auto nRanges = laser_data.ranges.size();
 
+        // The Left and Right seems to be swapped. I'm not entirely sure why.
+        // Could the laser be installed upside down?
         front_idx_       = nRanges / 2;                 //  0 degrees, 0 radians
-        left_idx_        = nRanges / 4;                 // -90 degrees, -pi/2
-        left_front_idx_  = left_idx_ + nRanges / 6;     // -30 degrees, -pi/6
-        right_idx_       = (nRanges / 4) * 3;           // +90 degrees, +pi/2
-        front_right_idx_ = right_idx_ - nRanges / 6;    // +30 degrees, +pi/6
+        right_idx_       = nRanges / 4;                 // -90 degrees, -pi/2
+        right_front_idx_ = right_idx_ + nRanges / 6;    // -30 degrees, -pi/6
+        left_idx_        = (nRanges / 4) * 3;           // +90 degrees, +pi/2
+        left_front_idx_  = left_idx_ - nRanges / 6;     // +30 degrees, +pi/6
 
-        RCLCPP_INFO(get_logger(), "# ranges: %zu, lIdx: %zu, lfIdx: %zu, fIdx: %zu, frIdx: %zu, fIdx: %zu",
-            nRanges, left_idx_, left_front_idx_, front_idx_, front_right_idx_, right_idx_);
+        RCLCPP_INFO(get_logger(), "# ranges: %zu, lIdx: %zu, lfIdx: %zu, fIdx: %zu, frIdx: %zu, rIdx: %zu",
+            nRanges, left_idx_, left_front_idx_, front_idx_, right_front_idx_, right_idx_);
+
+        RCLCPP_INFO(get_logger(), "rMIn: %f, rMax: %f", range_min_, range_max_);
     }
 
 private:
@@ -96,7 +102,7 @@ private:
     size_t left_idx_{};
     size_t left_front_idx_{};
     size_t right_idx_{};
-    size_t front_right_idx_{};
+    size_t right_front_idx_{};
 
 };
 
