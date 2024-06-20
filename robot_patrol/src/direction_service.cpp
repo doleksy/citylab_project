@@ -2,7 +2,7 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "citylab_interfaces/srv/get_direction.hpp"
-#include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
+#include "sensor_msgs/msg/laser_scan.hpp"
 
 #include <functional>
 #include <memory>
@@ -30,9 +30,15 @@ private:
     void directionCb(const std::shared_ptr<ServiceType::Request>  request,
                      const std::shared_ptr<ServiceType::Response> response)
     {
-        RCLCPP_INFO(get_logger(), "Direction service callback triggered");
+        RCLCPP_DEBUG(get_logger(), "Direction service callback triggered");
 
-        RCLCPP_INFO(logger_, "minAngle: %f, maxAngle: %f, angleInc: %f, ",
+        if (request->laser_data.ranges.size() == 0)
+        {
+            response->direction = "no_data";
+            return;
+        }
+
+        RCLCPP_DEBUG(logger_, "minAngle: %f, maxAngle: %f, angleInc: %f, ",
             request->laser_data.angle_min, request->laser_data.angle_max, request->laser_data.angle_increment);
 
         gather_laser_data(request->laser_data);
@@ -54,7 +60,7 @@ private:
         const auto total_dist_sec_front = std::accumulate(rightFrontIter, leftFrontIter, 0.0f, filterOutOfRange);
         const auto total_dist_sec_right = std::accumulate(rightIter, rightFrontIter, 0.0f, filterOutOfRange);
 
-        RCLCPP_INFO(logger_, "left: %f, front: %f, right: %f, ", *leftIter, *frontIter, *rightIter);
+        RCLCPP_DEBUG(logger_, "left: %f, front: %f, right: %f, ", *leftIter, *frontIter, *rightIter);
         RCLCPP_INFO(logger_, "totals: left: %f, front: %f, right: %f, ", total_dist_sec_left, total_dist_sec_front, total_dist_sec_right);
 
         const auto maxTotal = std::max({total_dist_sec_front, total_dist_sec_left, total_dist_sec_right});
@@ -85,10 +91,10 @@ private:
         left_idx_        = (nRanges / 4) * 3;           // +90 degrees, +pi/2
         left_front_idx_  = left_idx_ - nRanges / 6;     // +30 degrees, +pi/6
 
-        RCLCPP_INFO(get_logger(), "# ranges: %zu, lIdx: %zu, lfIdx: %zu, fIdx: %zu, frIdx: %zu, rIdx: %zu",
+        RCLCPP_DEBUG(get_logger(), "# ranges: %zu, lIdx: %zu, lfIdx: %zu, fIdx: %zu, frIdx: %zu, rIdx: %zu",
             nRanges, left_idx_, left_front_idx_, front_idx_, right_front_idx_, right_idx_);
 
-        RCLCPP_INFO(get_logger(), "rMIn: %f, rMax: %f", range_min_, range_max_);
+        RCLCPP_DEBUG(get_logger(), "rMIn: %f, rMax: %f", range_min_, range_max_);
     }
 
 private:

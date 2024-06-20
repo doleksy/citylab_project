@@ -30,7 +30,7 @@ ament_package()
 
 
 add_executable(patrol_node src/patrol.cpp)
-ament_target_dependencies(patrol_node rclcpp sensor_msgs)
+ament_target_dependencies(patrol_node rclcpp geometry_msgs sensor_msgs)
 
 add_executable(direction_srv_node src/direction_service.cpp)
 ament_target_dependencies(direction_srv_node rclcpp citylab_interfaces)
@@ -38,10 +38,14 @@ ament_target_dependencies(direction_srv_node rclcpp citylab_interfaces)
 add_executable(test_service_node src/test_service.cpp)
 ament_target_dependencies(test_service_node rclcpp sensor_msgs citylab_interfaces)
 
+add_executable(patrol_with_service_node src/patrol_with_service.cpp)
+ament_target_dependencies(patrol_with_service_node rclcpp sensor_msgs citylab_interfaces geometry_msgs)
+
 install(TARGETS
   patrol_node
   direction_srv_node
   test_service_node
+  patrol_with_service_node
   DESTINATION lib/${PROJECT_NAME}/
 )
 
